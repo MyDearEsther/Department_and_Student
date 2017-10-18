@@ -11,6 +11,7 @@
 #include "rapidjson/prettywriter.h"  
 #include "rapidjson/filereadstream.h" 
 #include "rapidjson/filewritestream.h"
+#include "rapidjson/istreamwrapper.h"
 
 using namespace std;
 using namespace rapidjson;
@@ -66,22 +67,22 @@ void ReadJson(Department* &department, Student* &student,int N,int M)
 {
 	//读入json文件
 	const string filename = "s" + IntToString(M) + "-d" + IntToString(N) + "-in.json";
-	ifstream json_file;
-	json_file.open(filename.c_str());
-	string json;
-	if (!json_file.is_open())
+	const char* temp = filename.c_str();
+	//ifstream json_file;
+	char readBuffer[65536];
+	FILE* fp = fopen(temp, "rb");
+	FileReadStream is(fp, readBuffer, sizeof(readBuffer));
+
+	//json_file.open(filename.c_str());
+	/*if (!json_file.is_open())
 	{
 		cout << "Error opening file" << endl;
 		exit(1);
-	}
-	string str;
-	string str_in = "";
-	while (getline(json_file, str))    //一行一行地读到字符串str_in中  
-	{
-		str_in = str_in + str + '\n';
-	}
+	}*/
+	//IStreamWrapper json(json_file);
+
 	Document doc;
-	doc.Parse<0>(str_in.c_str());
+	doc.ParseStream(is);
 	//部门读取
 	Value &departments = doc["department"];
 	if (departments.IsArray())
@@ -159,6 +160,7 @@ void ReadJson(Department* &department, Student* &student,int N,int M)
 			student[i].Init(No,Name,Sex,tags,tags_len,free_time,time_len,choices,choices_len,GPA);	//导入学生数据
 		}
 	}
+	fclose(fp);
 }
 void Generate_JSON(int N,int M)
 {
@@ -168,7 +170,7 @@ void Generate_JSON(int N,int M)
 	Student* student;
 	department = generate_department(N, D_Num);
 	student = generate_student(M, N, D_Num);
-	//写入json文件
+	
 	Document doc;
 	doc.SetObject();
 	Document::AllocatorType &allocator = doc.GetAllocator(); 
@@ -286,6 +288,8 @@ void Generate_JSON(int N,int M)
 	StringBuffer buffer;
 	PrettyWriter<StringBuffer> writer(buffer);  //PrettyWriter是格式化的json，如果是Writer则是换行空格压缩后的json
 	doc.Accept(writer);
+
+	//写入json文件
 	ofstream out;
 	const string filename = "s" + IntToString(M) + "-d" + IntToString(N) + "-in.json";
 	out.open(filename);
@@ -532,16 +536,15 @@ void output(Department* department, Student* student, int N, int M)
 		}
 	}
 	doc.AddMember("standalone_students", standalone_students, allocator);
-
-	StringBuffer buffer;
-	PrettyWriter<StringBuffer> writer(buffer);
-	doc.Accept(writer);
-	//cout << buffer.GetString() << endl;
-	ofstream out;
+	//输出json文件
 	string filename = "s" + IntToString(M) + "-d" + IntToString(N) + "-out.json";
-	out.open(filename);
-	out << buffer.GetString();
-	out.close();
+	const char* temp = filename.c_str();
+	FILE* fp = fopen(temp, "wb");
+	char writeBuffer[65536];
+	FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
+	Writer<FileWriteStream> writer(os);
+	doc.Accept(writer);
+	fclose(fp);
 }
 void Department::print()
 {
